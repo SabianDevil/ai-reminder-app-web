@@ -4,12 +4,9 @@ from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
-from dotenv import load_dotenv
 import pytz
 from sqlalchemy.sql import text as sa_text # Import sa_text untuk server_default UUID
 
-# --- Muat variabel lingkungan dari .env ---
-load_dotenv()
 
 # --- Inisialisasi Aplikasi Flask ---
 app = Flask(__name__)
@@ -17,7 +14,7 @@ app = Flask(__name__)
 # --- Konfigurasi Database ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable not set. Please create a .env file with your Supabase connection string.")
+    raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway.")
 
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
