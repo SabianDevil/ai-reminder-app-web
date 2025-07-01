@@ -1,5 +1,4 @@
 Flask
 psycopg2-binary
 SQLAlchemy
-python-dotenv
 pytz
