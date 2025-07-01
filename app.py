@@ -5,29 +5,27 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
 import pytz 
+from sqlalchemy.sql import text as sa_text # Diperlukan untuk server_default di model
 
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- DEBUGGING DAN PEMBERSIHAN KHUSUS UNTUK RAILWAY ---
-# HANYA LAKUKAN INI JIKA LOG DEBUG MENUNJUKKAN "DATABASE_URL='DATABASE_URL=...'"
-print(f"DEBUG: DATABASE_URL mentah yang diterima: '{DATABASE_URL_RAW}'")
+# --- KONFIGURASI DATABASE ---
+# DATABASE_URL sekarang langsung diambil saat create_engine
+# karena sudah diatur di Dockerfile menggunakan ENV
+db_url_from_env = os.getenv("DATABASE_URL")
 
-# Membersihkan string jika formatnya salah di Railway
-if DATABASE_URL_RAW and DATABASE_URL_RAW.startswith("DATABASE_URL=\""):
-    DATABASE_URL = DATABASE_URL_RAW[len("DATABASE_URL=\""):-1] # Potong "DATABASE_URL=" dan "
-    print(f"DEBUG: DATABASE_URL setelah dibersihkan: '{DATABASE_URL}'")
-elif DATABASE_URL_RAW: # Jika ada nilai tapi tidak dimulai dengan format aneh, gunakan langsung
-    DATABASE_URL = DATABASE_URL_RAW
-else: # Jika nilai kosong
-    DATABASE_URL = None
+# --- DEBUGGING SANGAT PENTING DI SINI ---
+# Baris ini akan mencetak nilai DATABASE_URL ke log Railway Anda saat aplikasi dimulai.
+# Ini sangat membantu untuk memastikan variabel lingkungan dibaca dengan benar.
+print(f"DEBUG: DATABASE_URL yang diterima: '{db_url_from_env}'") 
+if not db_url_from_env:
+    # Jika DATABASE_URL kosong, tampilkan error yang jelas di log Railway.
+    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV or Railway Variables.")
+    raise ValueError("DATABASE_URL environment variable not set.")
+# --- AKHIR DEBUGGING ---
 
-if not DATABASE_URL:
-    print("ERROR: DATABASE_URL is None or empty after cleaning. Check Railway Variables.")
-    raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway.")
-# --- AKHIR DEBUGGING DAN PEMBERSIHAN KHUSUS ---
-
-engine = create_engine(DATABASE_URL)
+engine = create_engine(db_url_from_env) # Langsung gunakan nilai dari os.getenv
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
