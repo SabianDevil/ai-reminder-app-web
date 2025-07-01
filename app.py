@@ -1,33 +1,22 @@
 import os
 from flask import Flask, request, jsonify, render_template
-from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer
-from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
 import pytz 
-from sqlalchemy.sql import text as sa_text # Diperlukan untuk server_default di model
 
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- KONFIGURASI DATABASE ---
-# DATABASE_URL sekarang langsung diambil saat create_engine
-# karena sudah diatur di Dockerfile menggunakan ENV
-db_url_from_env = os.getenv("DATABASE_URL")
-
-# --- DEBUGGING SANGAT PENTING DI SINI ---
-# Baris ini akan mencetak nilai DATABASE_URL ke log Railway Anda saat aplikasi dimulai.
-# Ini sangat membantu untuk memastikan variabel lingkungan dibaca dengan benar.
-print(f"DEBUG: DATABASE_URL yang diterima: '{db_url_from_env}'") 
-if not db_url_from_env:
-    # Jika DATABASE_URL kosong, tampilkan error yang jelas di log Railway.
-    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV or Railway Variables.")
-    raise ValueError("DATABASE_URL environment variable not set.")
-# --- AKHIR DEBUGGING ---
-
-engine = create_engine(db_url_from_env) # Langsung gunakan nilai dari os.getenv
-Session = sessionmaker(bind=engine)
-Base = declarative_base()
+# --- KONFIGURASI DATABASE (DINONAKTIFKAN SEMENTARA) ---
+# Komentari atau hapus baris yang terkait dengan DATABASE_URL dan SQLAlchemy engine/session/base
+# DATABASE_URL = os.getenv("DATABASE_URL")
+# print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
+# if not DATABASE_URL:
+#     print("ERROR: DATABASE_URL is None or empty. Check Railway Variables.")
+#     raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway.")
+# engine = create_engine(DATABASE_URL)
+# Session = sessionmaker(bind=engine)
+# Base = declarative_base()
 
 # --- KONFIGURASI ZONA WAKTU ---
 LOCAL_TIMEZONE = datetime.now(pytz.utc).astimezone().tzinfo
@@ -44,20 +33,20 @@ TIMEZONE_MAP = {
     "gmt-7": "Etc/GMT+7"
 }
 
-# --- MODEL DATABASE ---
-class Reminder(Base):
-    __tablename__ = 'reminders'
-    id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
-    user_id = Column(String) 
-    text = Column(String, nullable=False)
-    reminder_time = Column(DateTime(timezone=True), nullable=False) 
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow) 
-    is_completed = Column(Boolean, default=False)
-    repeat_type = Column(String, default="none") 
-    repeat_interval = Column(Integer, default=0) 
-
-    def __repr__(self):
-        return f"<Reminder(id='{self.id}', text='{self.text}', time='{self.reminder_time}')>"
+# --- MODEL DATABASE (DINONAKTIFKAN SEMENTARA / GANTI DENGAN DUMMY) ---
+# Karena database dinonaktifkan, kita tidak bisa menggunakan model SQLAlchemy.
+# Kita akan simpan pengingat di list Python saja (tidak persisten).
+# Ini akan menggantikan Base dan class Reminder
+class DummyReminder:
+    def __init__(self, event, scheduled_time, repeat_type, repeat_interval):
+        self.id = str(uuid.uuid4()) # Butuh uuid untuk ini
+        self.user_id = "anonymous"
+        self.text = event
+        self.reminder_time = scheduled_time
+        self.created_at = datetime.now(LOCAL_TIMEZONE)
+        self.is_completed = False
+        self.repeat_type = repeat_type
+        self.repeat_interval = repeat_interval
 
     def to_dict(self):
         return {
@@ -71,7 +60,14 @@ class Reminder(Base):
             "repeat_interval": self.repeat_interval
         }
 
+# --- Import uuid untuk DummyReminder ---
+import uuid
+
+# Global list to store reminders temporarily (not persistent)
+temp_reminders_storage = [] 
+
 # --- FUNGSI NLP: extract_schedule ---
+# Kode ini tetap sama
 def extract_schedule(text):
     original_text = text.lower()
     processed_text = original_text 
