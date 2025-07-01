@@ -1,0 +1,300 @@
+/* General Body & Root Styling */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Align to top for longer content */
+    min-height: 100vh;
+    margin: 0;
+    background-color: #f0f2f5;
+    color: #333;
+    transition: background-color 0.3s, color 0.3s;
+    padding: 20px; /* Add some padding around the whole app */
+    box-sizing: border-box; /* Include padding in element's total width and height */
+}
+
+/* Main Wrapper for the whole app content */
+.main-wrapper {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    max-width: 1200px; /* Wider container for two columns */
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border: 1px solid #ddd;
+}
+
+header {
+    margin-bottom: 20px;
+}
+
+h1 {
+    color: #1F6AA5;
+    margin-bottom: 10px;
+    font-size: 2.5em;
+}
+
+h2 {
+    color: #1F6AA5;
+    margin-bottom: 15px;
+    font-size: 1.8em;
+}
+
+/* Content Container for Two Columns */
+.content-container {
+    display: flex;
+    gap: 30px; /* Space between columns */
+    flex-wrap: wrap; /* Allow columns to wrap on smaller screens */
+    justify-content: center; /* Center columns when wrapped */
+}
+
+.left-column, .right-column {
+    flex: 1; /* Make columns take equal space */
+    min-width: 350px; /* Minimum width before wrapping */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Card Styling for Sections */
+.card {
+    background-color: #f9f9f9;
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Input Section Styling */
+.input-section {
+    flex-grow: 1; /* Allow input section to grow and take available space */
+}
+
+textarea {
+    width: calc(100% - 20px);
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1em;
+    resize: vertical;
+    min-height: 120px; /* Larger input area */
+    margin-bottom: 10px;
+}
+
+button {
+    background-color: #1F6AA5;
+    color: white;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1em;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #1a5a8f;
+}
+
+/* Message Area for success/error */
+.message-area {
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 15px;
+    font-weight: bold;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    text-align: left;
+    white-space: pre-wrap;
+    font-size: 0.9em;
+}
+
+.message-area.success {
+    background-color: #e6ffe6;
+    color: #4CAF50;
+    border: 1px solid #4CAF50;
+}
+
+.message-area.error {
+    background-color: #ffe6e6;
+    color: #f44336;
+    border: 1px solid #f44336;
+}
+
+.message-area.visible {
+    display: block;
+    opacity: 1;
+}
+
+/* Reminder List Styling */
+.reminder-list-section {
+    text-align: left;
+    flex-grow: 1; /* Allow list section to grow */
+}
+
+#reminderList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 300px; /* Fixed height for scrolling */
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: #fff;
+}
+
+#reminderList li {
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.95em;
+    color: #555;
+}
+
+#reminderList li:last-child {
+    border-bottom: none;
+}
+
+/* Calendar Section Styling */
+.calendar-section {
+    flex-grow: 1;
+    min-height: 500px; /* Give enough height for the calendar */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch; /* Stretch calendar content */
+}
+
+#calendar {
+    flex-grow: 1; /* Allow calendar to fill available space */
+    width: 100%;
+    /* FullCalendar will render here */
+}
+
+/* Styling for FullCalendar event dots/flags */
+.fc-daygrid-event-dot {
+    background-color: red !important; /* Contoh warna merah untuk tanda event */
+    border-radius: 50%;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.fc-event-title-container {
+    color: #333; /* Default text color for events */
+}
+
+.fc-daygrid-event {
+    background-color: transparent !important; /* Hide default event background */
+    border: none !important;
+}
+
+/* Timezone Clocks */
+.timezone-clocks {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    margin-top: 15px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
+.clock-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #e9ecef;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    min-width: 100px;
+}
+
+.clock {
+    font-weight: bold;
+    color: #1F6AA5;
+    margin-bottom: 5px;
+    font-size: 1.2em;
+}
+
+.timezone-label {
+    font-size: 0.85em;
+    color: #555;
+}
+
+/* Dark Mode Adaptation for Timezone Clocks & Calendar */
+@media (prefers-color-scheme: dark) {
+    .main-wrapper {
+        background-color: #2b2b2b;
+        border-color: #1a1a1a;
+    }
+    .card {
+        background-color: #343638;
+        border-color: #2a2a2a;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    .clock-item {
+        background-color: #3a3a3a;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .clock {
+        color: #61dafb; /* Lighter blue for dark mode */
+    }
+    .timezone-label {
+        color: #bbb;
+    }
+    /* FullCalendar Dark Mode Styling */
+    .fc .fc-toolbar-title,
+    .fc-col-header-cell,
+    .fc-daygrid-day-number,
+    .fc-daygrid-event-time,
+    .fc-daygrid-event-title {
+        color: #f0f0f0 !important; /* Ensure text is light */
+    }
+    .fc-button-primary {
+        background-color: #1F6AA5 !important;
+        border-color: #1F6AA5 !important;
+        color: white !important;
+    }
+    .fc-button-primary:hover {
+        background-color: #1a5a8f !important;
+        border-color: #1a5a8f !important;
+    }
+    .fc-button-group {
+        border: 1px solid #555;
+    }
+    .fc-today-button {
+        background-color: #555 !important;
+        border-color: #555 !important;
+    }
+    .fc-day-today {
+        background-color: #4a4d4f !important; /* Highlight today's date */
+    }
+    .fc-daygrid-day-number {
+        color: #f0f0f0;
+    }
+    .fc-day-past .fc-daygrid-day-number,
+    .fc-day-other .fc-daygrid-day-number {
+        color: #888;
+    }
+    .fc-daygrid-dot {
+        border-color: red; /* Color of the dot for events */
+    }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .content-container {
+        flex-direction: column;
+    }
+    .left-column, .right-column {
+        min-width: unset;
+        width: 100%;
+    }
+}
