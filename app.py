@@ -4,17 +4,23 @@ from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
-import pytz
-from sqlalchemy.sql import text as sa_text # Import sa_text untuk server_default UUID
+import pytz 
 
-
-# --- Inisialisasi Aplikasi Flask ---
+# --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- Konfigurasi Database ---
+# --- KONFIGURASI DATABASE ---
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+# --- DEBUGGING PENTING DI SINI ---
+# Baris ini akan mencetak nilai DATABASE_URL ke log Railway Anda saat aplikasi dimulai.
+# Ini sangat membantu untuk memastikan variabel lingkungan dibaca dengan benar.
+print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
 if not DATABASE_URL:
+    # Jika DATABASE_URL kosong, tampilkan error yang jelas di log Railway.
+    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Railway Variables.")
     raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway.")
+# --- AKHIR DEBUGGING ---
 
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
@@ -38,7 +44,7 @@ TIMEZONE_MAP = {
 # --- MODEL DATABASE ---
 class Reminder(Base):
     __tablename__ = 'reminders'
-    # PERBAIKAN DI SINI: Beri tahu SQLAlchemy bahwa ID di-generate oleh server
+    # 'server_default' memberitahu SQLAlchemy bahwa ID di-generate oleh database
     id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
     user_id = Column(String) 
     text = Column(String, nullable=False)
@@ -64,6 +70,7 @@ class Reminder(Base):
         }
 
 # --- FUNGSI NLP: extract_schedule ---
+# Ini adalah inti AI Anda yang mengurai teks
 def extract_schedule(text):
     original_text = text.lower()
     processed_text = original_text 
@@ -313,7 +320,7 @@ def format_timezone_display(dt_object):
             return "WITA"
         elif "Eastern Indonesia Standard Time" in tz_name_full:
             return "WIT"
-        return "" # Jika bukan WIB/WITA/WIT, kembalikan string kosong
+        return "" 
     return "" 
 
 # --- Route (Endpoint) untuk Aplikasi Web Anda ---
@@ -336,14 +343,7 @@ def add_reminder_api():
 
     session = Session()
     try:
-        # PENTING: Jika ID di Supabase diatur sebagai UUID dan DEFAULT value-nya gen_random_uuid(),
-        # Anda TIDAK PERLU memberikan ID di sini. Supabase akan menggenerasinya otomatis.
-        # Jika kolom ID di DB Anda adalah UUID dan otomatis di-generate oleh database, cukup hapus
-        # baris 'id=...' dan SQLAlchemy akan menanganinya.
-        # Jika Anda tetap ingin mengenerasinya di Python (misal jika kolom ID di DB bukan auto-UUID):
-        # Pastikan 'import uuid' di bagian atas file dan hapus komentar baris 'id=str(uuid.uuid4())'.
         new_reminder = Reminder(
-            # id=str(uuid.uuid4()), # Hapus komentar ini jika Anda pakai uuid.uuid4()
             user_id="anonymous", 
             text=extracted_info['event'],
             reminder_time=extracted_info['datetime'],
@@ -351,8 +351,6 @@ def add_reminder_api():
             repeat_interval=extracted_info.get('repeat_interval', 0)
         )
         session.add(new_reminder)
-        # Untuk mendapatkan ID yang di-generate Supabase, flush dan refresh setelah add.
-        # Ini penting jika Anda perlu ID segera setelah disimpan.
         session.flush() 
         session.refresh(new_reminder) 
         session.commit()
@@ -406,6 +404,8 @@ def complete_reminder_api(reminder_id):
 # --- Bagian untuk menjalankan Flask App ---
 if __name__ == '__main__':
     try:
+        # Import sa_text for server_default here if not already imported globally
+        from sqlalchemy.sql import text as sa_text 
         with engine.connect() as connection:
             Base.metadata.create_all(connection)
         print("Database tables ensured to exist.")
