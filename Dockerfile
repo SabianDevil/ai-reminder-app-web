@@ -1,23 +1,26 @@
 # Gunakan image dasar Python 3.11 yang ramping dan berbasis Debian Buster
 FROM python:3.11-slim-buster
 
-# Setel direktori kerja di dalam container. Semua perintah berikutnya akan dijalankan dari sini.
+# Setel direktori kerja di dalam container
 WORKDIR /app
 
-# Salin file requirements.txt ke direktori kerja container
+# Salin file requirements.txt ke dalam container
 COPY requirements.txt .
 
-# Instal semua dependensi Python. --no-cache-dir untuk mengurangi ukuran image.
+# Instal dependensi
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Salin semua kode aplikasi Anda dari folder lokal ke dalam container
-# Titik pertama (.) merujuk ke direktori saat ini di host (lokal Anda)
-# Titik kedua (.) merujuk ke direktori kerja di dalam container (/app)
+# Salin semua kode aplikasi Anda ke dalam container
 COPY . .
 
-# Beri tahu Docker bahwa container mendengarkan pada port 5000
-EXPOSE 5000
+# --- PERBAIKAN SANGAT PENTING DI SINI ---
+# WARNING: Ini TIDAK DIREKOMENDASIKAN untuk PRODUKSI karena mengekspos password.
+# Namun, ini adalah cara terakhir untuk mengatasi masalah ArgumentError yang persisten.
+ENV DATABASE_URL="postgresql://postgres:SabianGBA2@db.hckxsojwnwjygszahllc.supabase.co:5432/postgres"
+# --- AKHIR PERBAIKAN SANGAT PENTING ---
 
-# Komando untuk menjalankan aplikasi saat container dimulai (Start Command)
-# Ini adalah yang akan Railway jalankan untuk memulai server Flask Anda
+# Komando untuk menjalankan aplikasi (Start Command)
 CMD ["python", "app.py"]
+
+# Atur port yang akan didengarkan oleh aplikasi Anda
+EXPOSE 5000
