@@ -5,27 +5,33 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
 import pytz 
-from sqlalchemy.sql import text as sa_text # Diperlukan untuk server_default di model
+from sqlalchemy.sql import text as sa_text 
 
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
 # --- KONFIGURASI DATABASE ---
-# Langsung ambil DATABASE_URL dari environment.
-# Ini mengasumsikan Railway akan mengatur ENV DATABASE_URL dengan benar.
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # --- DEBUGGING PENTING DI SINI ---
-# Baris ini akan mencetak nilai DATABASE_URL ke log Railway Anda saat aplikasi dimulai.
-# Ini sangat penting untuk memastikan variabel lingkungan dibaca dengan benar.
 print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
 if not DATABASE_URL:
-    # Jika DATABASE_URL kosong, tampilkan error yang jelas di log Railway.
-    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Railway Variables.")
-    raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway.")
+    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV.")
+    raise ValueError("DATABASE_URL environment variable not set. Please set it in Dockerfile ENV.")
 # --- AKHIR DEBUGGING ---
 
-engine = create_engine(DATABASE_URL)
+# Membuat engine koneksi database
+try:
+    engine = create_engine(DATABASE_URL)
+    # Coba koneksi segera setelah engine dibuat untuk mendeteksi masalah awal
+    with engine.connect() as connection:
+        print("INFO: Database connection engine created successfully.")
+except Exception as e:
+    print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
+    # Jika gagal konek di awal, hentikan aplikasi agar tidak crash terus-menerus
+    # Dalam produksi, ini mungkin dicoba lagi atau log level dinaikkan
+    raise e # Re-raise exception to crash early and show full traceback
+
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -47,7 +53,6 @@ TIMEZONE_MAP = {
 # --- MODEL DATABASE ---
 class Reminder(Base):
     __tablename__ = 'reminders'
-    # 'server_default' memberitahu SQLAlchemy bahwa ID di-generate oleh database
     id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
     user_id = Column(String) 
     text = Column(String, nullable=False)
