@@ -20,7 +20,7 @@ COPY . .
 # Ganti placeholder dengan connection string Supabase Anda yang sudah di-URL encode
 # Contoh: postgresql://postgres:%40SabianGBA2@db.hckxsojwnwjygszahllc.supabase.co:5432/postgres
 # Anda harus mengambil string ini PERSIS dari output console Python Anda sebelumnya.
-ENV DATABASE_URL="postgresql://postgres:SabianGBA2@db.hckxsojwnwjygszahllc.supabase.co:5432/postgres"
+
 
 # Beri tahu Docker bahwa container mendengarkan pada port 5000 (port default Flask)
 EXPOSE 5000
