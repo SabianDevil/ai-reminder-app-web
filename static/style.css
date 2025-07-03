@@ -75,7 +75,7 @@ h2 {
 }
 
 textarea {
-    width: calc(100% - 20px);
+    width: calc(100% - 20px); /* Full width minus padding */
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 6px;
@@ -230,6 +230,10 @@ button:hover {
 
 /* Dark Mode Adaptation for Timezone Clocks & Calendar */
 @media (prefers-color-scheme: dark) {
+    body {
+        background-color: #2b2b2b;
+        color: #f0f0f0;
+    }
     .main-wrapper {
         background-color: #2b2b2b;
         border-color: #1a1a1a;
@@ -239,23 +243,51 @@ button:hover {
         border-color: #2a2a2a;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     }
+    h1, h2 {
+        color: #f0f0f0;
+    }
+    textarea, button {
+        background-color: #4a4d4f;
+        color: #f0f0f0;
+        border: 1px solid #555;
+    }
+    button:hover {
+        background-color: #3A7FB0;
+    }
+    .message-area.success {
+        background-color: #3e8e3e; /* Darker green for dark mode */
+        color: #e6ffe6;
+        border-color: #3e8e3e;
+    }
+    .message-area.error {
+        background-color: #a04040; /* Darker red for dark mode */
+        color: #ffe6e6;
+        border-color: #a04040;
+    }
+    .reminder-list-section ul li {
+        border-bottom-color: #4a4d4f;
+        color: #bbb;
+    }
+    .reminder-list-section #reminderList {
+        background-color: #2b2b2b;
+        border-color: #444;
+    }
     .clock-item {
         background-color: #3a3a3a;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
     .clock {
-        color: #61dafb; /* Lighter blue for dark mode */
+        color: #61dafb;
     }
     .timezone-label {
         color: #bbb;
     }
-    /* FullCalendar Dark Mode Styling */
     .fc .fc-toolbar-title,
     .fc-col-header-cell,
     .fc-daygrid-day-number,
     .fc-daygrid-event-time,
     .fc-daygrid-event-title {
-        color: #f0f0f0 !important; /* Ensure text is light */
+        color: #f0f0f0 !important;
     }
     .fc-button-primary {
         background-color: #1F6AA5 !important;
@@ -269,12 +301,8 @@ button:hover {
     .fc-button-group {
         border: 1px solid #555;
     }
-    .fc-today-button {
-        background-color: #555 !important;
-        border-color: #555 !important;
-    }
     .fc-day-today {
-        background-color: #4a4d4f !important; /* Highlight today's date */
+        background-color: #4a4d4f !important;
     }
     .fc-daygrid-day-number {
         color: #f0f0f0;
@@ -284,17 +312,6 @@ button:hover {
         color: #888;
     }
     .fc-daygrid-dot {
-        border-color: red; /* Color of the dot for events */
-    }
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .content-container {
-        flex-direction: column;
-    }
-    .left-column, .right-column {
-        min-width: unset;
-        width: 100%;
+        border-color: red;
     }
 }
