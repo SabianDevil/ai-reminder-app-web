@@ -16,7 +16,7 @@ COPY . .
 # --- PERBAIKAN SANGAT PENTING DI SINI ---
 # WARNING: Ini TIDAK DIREKOMENDASIKAN untuk PRODUKSI karena mengekspos password.
 # Namun, ini adalah cara terakhir untuk mengatasi masalah ArgumentError yang persisten.
-ENV DATABASE_URL="postgresql://postgres:SabianGBA2@db.hckxsojwnwjygszahllc.supabase.co:5432/postgres"
+ENV DATABASE_URL="postgresql://postgres:@SabianGBA2@db.hckxsojwnwjygszahllc.supabase.co:5432/postgres"
 # --- AKHIR PERBAIKAN SANGAT PENTING ---
 
 # Komando untuk menjalankan aplikasi (Start Command)
