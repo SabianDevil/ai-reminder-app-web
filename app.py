@@ -13,23 +13,23 @@ app = Flask(__name__)
 # --- KONFIGURASI DATABASE ---
 DATABASE_URL_RAW = os.getenv("DATABASE_URL")
 
-# --- DEBUGGING DAN PEMBERSIHAN KHUSUS UNTUK RAILWAY ---
+# --- DEBUGGING PENTING DI SINI ---
 # Baris ini akan mencetak nilai DATABASE_URL ke log Railway Anda saat aplikasi dimulai.
-# Ini sangat membantu untuk memastikan variabel lingkungan dibaca dengan benar.
-print(f"DEBUG: DATABASE_URL mentah yang diterima: '{DATABASE_URL_RAW}'")
+# Ini sangat penting untuk memastikan variabel lingkungan dibaca dengan benar.
+print(f"DEBUG: DATABASE_URL mentah yang diterima: '{DATABASE_URL_RAW}'") 
 
 # Membersihkan string jika formatnya salah di Railway
 # Ini adalah workaround untuk bug Railway yang mengirim "DATABASE_URL='...'""
 if DATABASE_URL_RAW and DATABASE_URL_RAW.startswith("DATABASE_URL=\"") and DATABASE_URL_RAW.endswith("\""):
     DATABASE_URL = DATABASE_URL_RAW[len("DATABASE_URL=\""):-1] 
     print(f"DEBUG: DATABASE_URL setelah dibersihkan: '{DATABASE_URL}'")
-elif DATABASE_URL_RAW: 
+elif DATABASE_URL_RAW: # Jika ada nilai tapi tidak dimulai dengan format aneh, gunakan langsung
     DATABASE_URL = DATABASE_URL_RAW
-else: 
+else: # Jika nilai kosong
     DATABASE_URL = None
 
 if not DATABASE_URL:
-    print("ERROR: DATABASE_URL is None or empty after cleaning. Please ensure it is set correctly in Railway Variables.")
+    print("ERROR: DATABASE_URL is None or empty after cleaning. Please ensure it is set correctly in Dockerfile ENV or Railway Variables.")
     raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway.")
 # --- AKHIR DEBUGGING DAN PEMBERSIHAN KHUSUS ---
 
