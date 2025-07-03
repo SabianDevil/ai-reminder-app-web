@@ -379,6 +379,10 @@ def get_reminders_api():
         for r in reminders:
             r_dict = r.to_dict()
             if r.reminder_time:
-                tz_display = format_timezone_display(r.reminder_time)
-                if tz_display:
-                    r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %
+            tz_display = format_timezone_display(r.reminder_time)
+            if tz_display:
+                # Pastikan format string ini lengkap dan tanda kutipnya benar
+                r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %B %Y %H:%M {tz_display}')
+            else:
+                # Pastikan format string ini lengkap dan tanda kutipnya benar
+                r_dict['reminder_time_display'] = r.reminder_time.strftime('%d %B %Y %H:%M')
