@@ -10,21 +10,29 @@ from sqlalchemy.sql import text as sa_text
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- KONFIGURASI DATABASE ---
-# DATABASE_URL akan diambil dari environment.
-# Ini mengasumsikan Dockerfile sudah mengatur ENV DATABASE_URL dengan benar.
-DATABASE_URL_FROM_ENV = os.getenv("DATABASE_URL")
+# --- KONFIGURASI DATABASE RAILWAY POSTGRESQL INTERNAL ---
+# Railway akan otomatis menyuntikkan DATABASE_URL untuk PostgreSQL internalnya
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # --- DEBUGGING PENTING DI SINI ---
 # Baris ini akan mencetak nilai DATABASE_URL ke log Railway Anda saat aplikasi dimulai.
-print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL_FROM_ENV}'") 
-if not DATABASE_URL_FROM_ENV:
+print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
+if not DATABASE_URL:
     # Jika DATABASE_URL kosong, tampilkan error yang jelas di log Railway.
-    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV.")
-    raise ValueError("DATABASE_URL environment variable not set. Please set it in Dockerfile ENV.")
+    print("ERROR: DATABASE_URL is None or empty. Please ensure Railway's PostgreSQL Add-on is attached to this service.")
+    raise ValueError("DATABASE_URL environment variable not set for Railway PostgreSQL.")
 # --- AKHIR DEBUGGING ---
 
-engine = create_engine(DATABASE_URL_FROM_ENV) # Langsung gunakan nilai dari os.getenv
+try:
+    engine = create_engine(DATABASE_URL)
+    # Coba koneksi segera setelah engine dibuat untuk mendeteksi masalah awal
+    with engine.connect() as connection:
+        print("INFO: Database connection engine created and tested successfully.")
+except Exception as e:
+    print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
+    # Jika gagal konek di awal, hentikan aplikasi agar tidak crash terus-menerus
+    raise e 
+
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -46,7 +54,6 @@ TIMEZONE_MAP = {
 # --- MODEL DATABASE ---
 class Reminder(Base):
     __tablename__ = 'reminders'
-    # 'server_default' memberitahu SQLAlchemy bahwa ID di-generate oleh database
     id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
     user_id = Column(String) 
     text = Column(String, nullable=False)
@@ -374,43 +381,4 @@ def get_reminders_api():
             if r.reminder_time:
                 tz_display = format_timezone_display(r.reminder_time)
                 if tz_display:
-                    r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %B %Y %H:%M {tz_display}')
-                else:
-                    r_dict['reminder_time_display'] = r.reminder_time.strftime('%d %B %Y %H:%M')
-            reminders_data.append(r_dict)
-
-        return jsonify(reminders_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-@app.route('/complete_reminder/<string:reminder_id>', methods=['POST'])
-def complete_reminder_api(reminder_id):
-    session = Session()
-    try:
-        reminder = session.query(Reminder).filter_by(id=reminder_id).first()
-        if not reminder:
-            return jsonify({"error": "Pengingat tidak ditemukan"}), 404
-        
-        reminder.is_completed = True
-        session.commit()
-        return jsonify({"message": "Pengingat ditandai selesai", "reminder": reminder.to_dict()}), 200
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-# --- Bagian untuk menjalankan Flask App ---
-if __name__ == '__main__':
-    try:
-        from sqlalchemy.sql import text as sa_text 
-        with engine.connect() as connection:
-            Base.metadata.create_all(connection)
-        print("Database tables ensured to exist.")
-    except Exception as e:
-        print(f"Error ensuring database tables: {e}")
-        print("If tables already exist, this error can be ignored during development.")
-
-    app.run(debug=True, host='0.0.0.0')
+                    r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %
