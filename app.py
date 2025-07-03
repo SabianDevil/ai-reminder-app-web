@@ -11,27 +11,29 @@ from sqlalchemy.sql import text as sa_text
 app = Flask(__name__)
 
 # --- KONFIGURASI DATABASE ---
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL_RAW = os.getenv("DATABASE_URL")
 
-# --- DEBUGGING PENTING DI SINI ---
-print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
+# --- DEBUGGING DAN PEMBERSIHAN KHUSUS UNTUK RAILWAY ---
+# Baris ini akan mencetak nilai DATABASE_URL ke log Railway Anda saat aplikasi dimulai.
+# Ini sangat membantu untuk memastikan variabel lingkungan dibaca dengan benar.
+print(f"DEBUG: DATABASE_URL mentah yang diterima: '{DATABASE_URL_RAW}'")
+
+# Membersihkan string jika formatnya salah di Railway
+# Ini adalah workaround untuk bug Railway yang mengirim "DATABASE_URL='...'""
+if DATABASE_URL_RAW and DATABASE_URL_RAW.startswith("DATABASE_URL=\"") and DATABASE_URL_RAW.endswith("\""):
+    DATABASE_URL = DATABASE_URL_RAW[len("DATABASE_URL=\""):-1] 
+    print(f"DEBUG: DATABASE_URL setelah dibersihkan: '{DATABASE_URL}'")
+elif DATABASE_URL_RAW: 
+    DATABASE_URL = DATABASE_URL_RAW
+else: 
+    DATABASE_URL = None
+
 if not DATABASE_URL:
-    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV.")
-    raise ValueError("DATABASE_URL environment variable not set. Please set it in Dockerfile ENV.")
-# --- AKHIR DEBUGGING ---
+    print("ERROR: DATABASE_URL is None or empty after cleaning. Please ensure it is set correctly in Railway Variables.")
+    raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway.")
+# --- AKHIR DEBUGGING DAN PEMBERSIHAN KHUSUS ---
 
-# Membuat engine koneksi database
-try:
-    engine = create_engine(DATABASE_URL)
-    # Coba koneksi segera setelah engine dibuat untuk mendeteksi masalah awal
-    with engine.connect() as connection:
-        print("INFO: Database connection engine created successfully.")
-except Exception as e:
-    print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
-    # Jika gagal konek di awal, hentikan aplikasi agar tidak crash terus-menerus
-    # Dalam produksi, ini mungkin dicoba lagi atau log level dinaikkan
-    raise e # Re-raise exception to crash early and show full traceback
-
+engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
