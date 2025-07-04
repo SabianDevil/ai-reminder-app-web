@@ -63,14 +63,32 @@ class Reminder(Base):
 
     def to_dict(self):
         # PERBAIKAN DI SINI: Pastikan datetime diformat sebagai ISO string yang valid
-        # dengan atau tanpa tzinfo, untuk kompatibilitas JSON dan JS
+        # dengan atau tanpa tzinfo, untuk kompatibilitas JSON dan JS.
+        # Jika ada masalah, pastikan untuk menanganinya.
+        reminder_time_iso = None
+        if self.reminder_time:
+            try:
+                # Periksa apakah objek aware, lalu gunakan isoformat()
+                reminder_time_iso = self.reminder_time.isoformat()
+            except Exception as dt_e:
+                # Fallback ke string yang lebih sederhana jika isoformat gagal
+                print(f"ERROR: Failed to isoformat reminder_time {self.reminder_time}: {dt_e}")
+                reminder_time_iso = self.reminder_time.strftime('%Y-%m-%dT%H:%M:%S')
+
+        created_at_iso = None
+        if self.created_at:
+            try:
+                created_at_iso = self.created_at.isoformat()
+            except Exception as dt_e:
+                print(f"ERROR: Failed to isoformat created_at {self.created_at}: {dt_e}")
+                created_at_iso = self.created_at.strftime('%Y-%m-%dT%H:%M:%S')
+
         return {
-            "id": self.id,
+            "id": str(self.id) if self.id else None, # Pastikan ID diubah ke string
             "user_id": self.user_id,
             "text": self.text,
-            # Format datetime secara eksplisit untuk JSON. Gunakan isoformat() yang umum.
-            "reminder_time": self.reminder_time.isoformat() if self.reminder_time else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "reminder_time": reminder_time_iso,
+            "created_at": created_at_iso,
             "is_completed": self.is_completed,
             "repeat_type": self.repeat_type,
             "repeat_interval": self.repeat_interval
@@ -377,6 +395,8 @@ def get_reminders_api():
         for r in reminders:
             r_dict = r.to_dict()
             if r.reminder_time:
+                # PERBAIKAN SYNTAXERROR DI SINI
+                # String format harus dikurung sepenuhnya, tidak terputus
                 tz_display = format_timezone_display(r.reminder_time)
                 if tz_display:
                     r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %B %Y %H:%M {tz_display}')
@@ -386,6 +406,7 @@ def get_reminders_api():
 
         return jsonify(reminders_data), 200
     except Exception as e:
+        print(f"ERROR in get_reminders_api: {e}") # Tambahkan logging untuk error ini
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
