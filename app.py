@@ -5,26 +5,30 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
 import pytz 
-from sqlalchemy.sql import text as sa_text # Diperlukan untuk server_default di model
+from sqlalchemy.sql import text as sa_text 
 
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- KONFIGURASI DATABASE SQLite (Paling Andal untuk Hosting Gratis) ---
-# File database SQLite akan dibuat di dalam container/server itu sendiri
-DATABASE_URL = "sqlite:///app.db" # Database SQLite bernama app.db
+# --- KONFIGURASI DATABASE RAILWAY POSTGRESQL INTERNAL ---
+# Railway akan otomatis menyuntikkan DATABASE_URL untuk PostgreSQL internalnya
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# --- DEBUGGING SEMENTARA (Hanya untuk konfirmasi) ---
-print(f"DEBUG: Menggunakan DATABASE_URL: '{DATABASE_URL}'") 
+# --- DEBUGGING PENTING ---
+print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
+if not DATABASE_URL:
+    print("ERROR: DATABASE_URL is None or empty. Please ensure Railway's PostgreSQL Add-on is attached to this service.")
+    raise ValueError("DATABASE_URL environment variable not set for Railway PostgreSQL.")
 # --- AKHIR DEBUGGING ---
 
 try:
     engine = create_engine(DATABASE_URL)
-    # Coba koneksi segera setelah engine dibuat
+    # Coba koneksi segera setelah engine dibuat untuk mendeteksi masalah awal
     with engine.connect() as connection:
-        print("INFO: Database connection engine created and tested successfully with SQLite.")
+        print("INFO: Database connection engine created and tested successfully with Railway's PostgreSQL.")
 except Exception as e:
     print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
+    # Jika gagal konek di awal, hentikan aplikasi agar tidak crash terus-menerus
     raise e 
 
 Session = sessionmaker(bind=engine)
@@ -48,8 +52,8 @@ TIMEZONE_MAP = {
 # --- MODEL DATABASE ---
 class Reminder(Base):
     __tablename__ = 'reminders'
-    # Untuk SQLite, ID biasanya Integer auto-increment, bukan UUID
-    id = Column(Integer, primary_key=True, autoincrement=True) 
+    # 'server_default' memberitahu SQLAlchemy bahwa ID di-generate oleh database PostgreSQL
+    id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
     user_id = Column(String) 
     text = Column(String, nullable=False)
     reminder_time = Column(DateTime(timezone=True), nullable=False) 
@@ -376,7 +380,6 @@ def get_reminders_api():
             if r.reminder_time:
                 tz_display = format_timezone_display(r.reminder_time)
                 if tz_display:
-                    # PERBAIKAN SYNTAXERROR DI SINI
                     r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %B %Y %H:%M {tz_display}')
                 else:
                     r_dict['reminder_time_display'] = r.reminder_time.strftime('%d %B %Y %H:%M')
