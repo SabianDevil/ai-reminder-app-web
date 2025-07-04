@@ -1,25 +1,34 @@
 import os
 from flask import Flask, request, jsonify, render_template
+from sqlalchemy import create_engine, Column, String, DateTime, Boolean, Integer
+from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
 import pytz 
-import uuid # Diperlukan untuk DummyReminder
+from sqlalchemy.sql import text as sa_text # Diperlukan untuk server_default di model
 
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- KONFIGURASI DATABASE (DINONAKTIFKAN SEMENTARA) ---
-# Baris terkait database seperti DATABASE_URL, engine, Session, Base akan dikomentari.
-# Debugging print untuk DATABASE_URL juga tidak diperlukan di sini karena tidak akan digunakan.
-# DATABASE_URL_FROM_ENV = os.getenv("DATABASE_URL")
-# print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL_FROM_ENV}'") 
-# if not DATABASE_URL_FROM_ENV:
-#     print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV.")
-#     raise ValueError("DATABASE_URL environment variable not set. Please set it in Dockerfile ENV.")
+# --- KONFIGURASI DATABASE SQLite (Paling Andal untuk Hosting Gratis) ---
+# File database SQLite akan dibuat di dalam container/server itu sendiri
+DATABASE_URL = "sqlite:///app.db" # Database SQLite bernama app.db
 
-# engine = create_engine(DATABASE_URL_FROM_ENV) 
-# Session = sessionmaker(bind=engine)
-# Base = declarative_base() # Ini akan diganti dengan DummyReminder
+# --- DEBUGGING SEMENTARA (Hanya untuk konfirmasi) ---
+print(f"DEBUG: Menggunakan DATABASE_URL: '{DATABASE_URL}'") 
+# --- AKHIR DEBUGGING ---
+
+try:
+    engine = create_engine(DATABASE_URL)
+    # Coba koneksi segera setelah engine dibuat
+    with engine.connect() as connection:
+        print("INFO: Database connection engine created and tested successfully with SQLite.")
+except Exception as e:
+    print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
+    raise e 
+
+Session = sessionmaker(bind=engine)
+Base = declarative_base()
 
 # --- KONFIGURASI ZONA WAKTU ---
 LOCAL_TIMEZONE = datetime.now(pytz.utc).astimezone().tzinfo
@@ -36,18 +45,21 @@ TIMEZONE_MAP = {
     "gmt-7": "Etc/GMT+7"
 }
 
-# --- MODEL DATABASE (DIGANTI DENGAN PENYIMPANAN DI MEMORI) ---
-# Ini adalah representasi pengingat untuk penyimpanan sementara
-class Reminder: # Bukan Base dari SQLAlchemy
-    def __init__(self, event, scheduled_time, repeat_type, repeat_interval):
-        self.id = str(uuid.uuid4()) # Generate UUID di Python
-        self.user_id = "anonymous"
-        self.text = event
-        self.reminder_time = scheduled_time
-        self.created_at = datetime.now(LOCAL_TIMEZONE)
-        self.is_completed = False
-        self.repeat_type = repeat_type
-        self.repeat_interval = repeat_interval
+# --- MODEL DATABASE ---
+class Reminder(Base):
+    __tablename__ = 'reminders'
+    # Untuk SQLite, ID biasanya Integer auto-increment, bukan UUID
+    id = Column(Integer, primary_key=True, autoincrement=True) 
+    user_id = Column(String) 
+    text = Column(String, nullable=False)
+    reminder_time = Column(DateTime(timezone=True), nullable=False) 
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow) 
+    is_completed = Column(Boolean, default=False)
+    repeat_type = Column(String, default="none") 
+    repeat_interval = Column(Integer, default=0) 
+
+    def __repr__(self):
+        return f"<Reminder(id='{self.id}', text='{self.text}', time='{self.reminder_time}')>"
 
     def to_dict(self):
         return {
@@ -61,12 +73,7 @@ class Reminder: # Bukan Base dari SQLAlchemy
             "repeat_interval": self.repeat_interval
         }
 
-# Global list untuk menyimpan pengingat sementara (tidak persisten)
-temp_reminders_storage = [] 
-
-
 # --- FUNGSI NLP: extract_schedule ---
-# Kode ini tetap sama, hanya sekarang now_local dihitung saat dipanggil
 def extract_schedule(text):
     original_text = text.lower()
     processed_text = original_text 
@@ -337,95 +344,76 @@ def add_reminder_api():
     if not extracted_info:
         return jsonify({"error": "Tidak dapat mengurai pengingat dari teks. Format tidak dikenal."}), 400
 
-    # session = Session() # Nonaktifkan koneksi DB
+    session = Session()
     try:
-        # new_reminder = Reminder(...) # Nonaktifkan penyimpanan DB
-        # session.add(new_reminder)
-        # session.flush() 
-        # session.refresh(new_reminder) 
-        # session.commit()
-        
-        # Simpan di memori untuk demo tanpa DB
-        new_reminder = {
-            "id": str(uuid.uuid4()), # Butuh uuid diimpor
-            "user_id": "anonymous",
-            "text": extracted_info['event'],
-            "reminder_time": extracted_info['datetime'],
-            "repeat_type": extracted_info.get('repeat_type', 'none'),
-            "repeat_interval": extracted_info.get('repeat_interval', 0)
-        }
-        # Tambahkan ke daftar global yang disimpan di memori
-        temp_reminders_storage.append(new_reminder)
-
-
-        return jsonify({"message": "Pengingat berhasil ditambahkan (tidak disimpan permanen)", "reminder": new_reminder}), 201
+        new_reminder = Reminder(
+            user_id="anonymous", 
+            text=extracted_info['event'],
+            reminder_time=extracted_info['datetime'],
+            repeat_type=extracted_info.get('repeat_type', 'none'),
+            repeat_interval=extracted_info.get('repeat_interval', 0)
+        )
+        session.add(new_reminder)
+        session.flush() 
+        session.refresh(new_reminder) 
+        session.commit()
+        return jsonify({"message": "Pengingat berhasil ditambahkan", "reminder": new_reminder.to_dict()}), 201
     except Exception as e:
-        # session.rollback() # Nonaktifkan DB rollback
+        session.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
-        pass # session.close() tidak diperlukan
+        session.close()
 
 @app.route('/get_reminders', methods=['GET'])
 def get_reminders_api():
-    # session = Session() # Nonaktifkan koneksi DB
+    session = Session()
     try:
-        # reminders = session.query(Reminder).order_by(Reminder.reminder_time.asc()).all() # Nonaktifkan DB query
-        
-        # Ambil dari daftar global yang disimpan di memori
-        # Sortir secara manual
-        reminders_sorted = sorted(temp_reminders_storage, key=lambda r: r['reminder_time'])
+        reminders = session.query(Reminder).order_by(Reminder.reminder_time.asc()).all()
         
         reminders_data = []
-        for r_dict in reminders_sorted: # Iterasi dict langsung
-            # r_dict = r.to_dict() # Sudah dalam bentuk dict
-            if r_dict['reminder_time']: # Gunakan r_dict['reminder_time'] langsung
-                # Konversi string ISO ke datetime object sementara untuk format display
-                dt_obj = datetime.fromisoformat(r_dict['reminder_time'])
-                tz_display = format_timezone_display(dt_obj)
+        for r in reminders:
+            r_dict = r.to_dict()
+            if r.reminder_time:
+                tz_display = format_timezone_display(r.reminder_time)
                 if tz_display:
-                    r_dict['reminder_time_display'] = dt_obj.strftime(f'%d %B %Y %H:%M {tz_display}')
+                    # PERBAIKAN SYNTAXERROR DI SINI
+                    r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %B %Y %H:%M {tz_display}')
                 else:
-                    r_dict['reminder_time_display'] = dt_obj.strftime('%d %B %Y %H:%M')
+                    r_dict['reminder_time_display'] = r.reminder_time.strftime('%d %B %Y %H:%M')
             reminders_data.append(r_dict)
 
         return jsonify(reminders_data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        pass # session.close() tidak diperlukan
+        session.close()
 
 @app.route('/complete_reminder/<string:reminder_id>', methods=['POST'])
 def complete_reminder_api(reminder_id):
-    # Nonaktifkan koneksi DB
-    # session = Session() 
+    session = Session()
     try:
-        # reminder = session.query(Reminder).filter_by(id=reminder_id).first() # Nonaktifkan DB query
-        
-        # Cari di daftar global
-        reminder_found = next((r for r in temp_reminders_storage if r['id'] == reminder_id), None)
-
-        if not reminder_found:
+        reminder = session.query(Reminder).filter_by(id=reminder_id).first()
+        if not reminder:
             return jsonify({"error": "Pengingat tidak ditemukan"}), 404
         
-        reminder_found['is_completed'] = True # Update status
-        # session.commit() # Nonaktifkan DB commit
-        return jsonify({"message": "Pengingat ditandai selesai (tidak disimpan permanen)", "reminder": reminder_found}), 200
+        reminder.is_completed = True
+        session.commit()
+        return jsonify({"message": "Pengingat ditandai selesai", "reminder": reminder.to_dict()}), 200
     except Exception as e:
-        # session.rollback() # Nonaktifkan DB rollback
+        session.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
-        pass # session.close() tidak diperlukan
+        session.close()
 
 # --- Bagian untuk menjalankan Flask App ---
 if __name__ == '__main__':
-    # Hapus atau komentari bagian create_all karena tidak ada DB
-    # try:
-    #     from sqlalchemy.sql import text as sa_text 
-    #     with engine.connect() as connection:
-    #         Base.metadata.create_all(connection)
-    #     print("Database tables ensured to exist.")
-    # except Exception as e:
-    #     print(f"Error ensuring database tables: {e}")
-    #     print("If tables already exist, this error can be ignored during development.")
+    try:
+        from sqlalchemy.sql import text as sa_text 
+        with engine.connect() as connection:
+            Base.metadata.create_all(connection)
+        print("Database tables ensured to exist.")
+    except Exception as e:
+        print(f"Error ensuring database tables: {e}")
+        print("If tables already exist, this error can be ignored during development.")
 
     app.run(debug=True, host='0.0.0.0')
