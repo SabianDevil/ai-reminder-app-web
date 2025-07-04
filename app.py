@@ -10,20 +10,20 @@ from sqlalchemy.sql import text as sa_text
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- KONFIGURASI DATABASE RAILWAY POSTGRESQL INTERNAL ---
-DATABASE_URL = os.getenv("DATABASE_URL")
+# --- KONFIGURASI DATABASE ---
+DATABASE_URL_FROM_ENV = os.getenv("DATABASE_URL")
 
 # --- DEBUGGING PENTING ---
-print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
-if not DATABASE_URL:
-    print("ERROR: DATABASE_URL is None or empty. Please ensure Railway's PostgreSQL Add-on is attached to this service.")
-    raise ValueError("DATABASE_URL environment variable not set for Railway PostgreSQL.")
+print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL_FROM_ENV}'") 
+if not DATABASE_URL_FROM_ENV:
+    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV.")
+    raise ValueError("DATABASE_URL environment variable not set. Please set it in Dockerfile ENV.")
 # --- AKHIR DEBUGGING ---
 
 try:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DATABASE_URL_FROM_ENV) 
     with engine.connect() as connection:
-        print("INFO: Database connection engine created and tested successfully with Railway's PostgreSQL.")
+        print("INFO: Database connection engine created and tested successfully.")
 except Exception as e:
     print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
     raise e 
@@ -68,7 +68,7 @@ class Reminder(Base):
             "id": self.id,
             "user_id": self.user_id,
             "text": self.text,
-            # Gunakan isoformat() dengan string yang jelas
+            # Format datetime secara eksplisit untuk JSON. Gunakan isoformat() yang umum.
             "reminder_time": self.reminder_time.isoformat() if self.reminder_time else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "is_completed": self.is_completed,
