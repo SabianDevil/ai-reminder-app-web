@@ -10,26 +10,27 @@ COPY requirements.txt .
 # Instal dependensi
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- PERBAIKAN PENTING DI SINI ---
-# Deklarasikan ARG untuk menerima DATABASE_URL selama build
-ARG DATABASE_URL
-
-# Setel DATABASE_URL sebagai ENV variabel untuk runtime dan untuk perintah RUN berikutnya
-# Ini akan memastikan DATABASE_URL tersedia saat create_db_tables.py dijalankan
-ENV DATABASE_URL=$DATABASE_URL
-
 # Salin skrip pembuatan tabel dan semua kode aplikasi Anda ke dalam container
 COPY create_db_tables.py .
 COPY app.py .
 COPY templates/ templates/
 COPY static/ static/
+
+# --- PERBAIKAN PENTING DI SINI: PASTIKAN DATABASE_URL TERSEDIA UNTUK RUN ---
+# Gunakan ARG untuk menerima URL selama build
+ARG DATABASE_URL_ARG
+
+# Setel DATABASE_URL sebagai ENV variabel. Ini akan tersedia untuk perintah RUN berikutnya
+# Jika DATABASE_URL_ARG kosong, Railway akan menggunakan DATABASE_URL dari variable di dashboard
+# Jika tidak kosong, gunakan DATABASE_URL_ARG
+ENV DATABASE_URL=${DATABASE_URL_ARG}
 # --- AKHIR PERBAIKAN ---
 
 # Beri tahu Docker bahwa container mendengarkan pada port 5000 (port default Flask)
 EXPOSE 5000
 
-# --- LANGKAH BARU: JALANKAN SKRIP PEMBUATAN TABEL SEBELUM START APLIKASI UTAMA ---
-# Ini akan memastikan tabel dibuat saat container di-deploy
+# --- JALANKAN SKRIP PEMBUATAN TABEL SEBELUM START APLIKASI UTAMA ---
+# Sekarang skrip ini akan memiliki DATABASE_URL di lingkungannya
 RUN python create_db_tables.py
 
 # Komando untuk menjalankan aplikasi saat container dimulai (Start Command)
