@@ -5,27 +5,30 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime, timedelta
 import re
 import pytz 
-from sqlalchemy.sql import text as sa_text 
+from sqlalchemy.sql import text as sa_text # Diperlukan untuk server_default di model
 
 # --- INISIALISASI APLIKASI FLASK ---
 app = Flask(__name__)
 
-# --- KONFIGURASI DATABASE ---
-DATABASE_URL_FROM_ENV = os.getenv("DATABASE_URL")
+# --- KONFIGURASI DATABASE RAILWAY POSTGRESQL INTERNAL ---
+# Railway akan otomatis menyuntikkan DATABASE_URL untuk PostgreSQL internalnya
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # --- DEBUGGING PENTING ---
-print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL_FROM_ENV}'") 
-if not DATABASE_URL_FROM_ENV:
-    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV.")
-    raise ValueError("DATABASE_URL environment variable not set. Please set it in Dockerfile ENV.")
+print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL}'") 
+if not DATABASE_URL:
+    print("ERROR: DATABASE_URL is None or empty. Please ensure Railway's PostgreSQL Add-on is attached to this service.")
+    raise ValueError("DATABASE_URL environment variable not set for Railway PostgreSQL.")
 # --- AKHIR DEBUGGING ---
 
 try:
-    engine = create_engine(DATABASE_URL_FROM_ENV) 
+    engine = create_engine(DATABASE_URL)
+    # Coba koneksi segera setelah engine dibuat untuk mendeteksi masalah awal
     with engine.connect() as connection:
-        print("INFO: Database connection engine created and tested successfully.")
+        print("INFO: Database connection engine created and tested successfully with Railway's PostgreSQL.")
 except Exception as e:
     print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
+    # Jika gagal konek di awal, hentikan aplikasi agar tidak crash terus-menerus
     raise e 
 
 Session = sessionmaker(bind=engine)
@@ -49,6 +52,7 @@ TIMEZONE_MAP = {
 # --- MODEL DATABASE ---
 class Reminder(Base):
     __tablename__ = 'reminders'
+    # 'server_default' memberitahu SQLAlchemy bahwa ID di-generate oleh database PostgreSQL
     id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
     user_id = Column(String) 
     text = Column(String, nullable=False)
@@ -62,18 +66,36 @@ class Reminder(Base):
         return f"<Reminder(id='{self.id}', text='{self.text}', time='{self.reminder_time}')>"
 
     def to_dict(self):
+        # Pastikan semua nilai dikonversi dengan aman ke string/tipe dasar JSON
+        reminder_time_iso = None
+        if self.reminder_time:
+            try:
+                # Menggunakan isoformat() yang paling standar dan aman untuk datetime aware/naive
+                reminder_time_iso = self.reminder_time.isoformat()
+            except Exception as dt_e:
+                print(f"ERROR in to_dict (reminder_time): Failed to isoformat {self.reminder_time}: {dt_e}")
+                reminder_time_iso = self.reminder_time.strftime('%Y-%m-%dT%H:%M:%S')
+
+        created_at_iso = None
+        if self.created_at:
+            try:
+                created_at_iso = self.created_at.isoformat()
+            except Exception as dt_e:
+                print(f"ERROR in to_dict (created_at): Failed to isoformat {self.created_at}: {dt_e}")
+                created_at_iso = self.created_at.strftime('%Y-%m-%dT%H:%M:%S')
+
         return {
             "id": str(self.id) if self.id else None, 
             "user_id": str(self.user_id) if self.user_id else "", 
             "text": str(self.text) if self.text else "N/A", 
-            "reminder_time": self.reminder_time.isoformat() if self.reminder_time else None, 
-            "created_at": self.created_at.isoformat() if self.created_at else None, 
+            "reminder_time": reminder_time_iso,
+            "created_at": created_at_iso,
             "is_completed": bool(self.is_completed), 
             "repeat_type": str(self.repeat_type) if self.repeat_type else "none", 
             "repeat_interval": int(self.repeat_interval) if self.repeat_interval is not None else 0 
         }
 
-# --- FUNGSI NLP: extract_schedule (tidak berubah) ---
+# --- FUNGSI NLP: extract_schedule ---
 def extract_schedule(text):
     original_text = text.lower()
     processed_text = original_text 
@@ -377,19 +399,44 @@ def add_reminder_api():
 def get_reminders_api():
     session = Session() # Session dibuat di awal
     try:
-        print("DEBUG: Memulai get_reminders_api (versi sederhana).")
-        # Hanya mencoba menghitung jumlah pengingat
-        count = session.query(Reminder).count()
-        print(f"DEBUG: Berhasil menghitung {count} pengingat dari database.")
+        print("DEBUG: Memulai get_reminders_api (versi lengkap).")
+        reminders = session.query(Reminder).order_by(Reminder.reminder_time.asc()).all()
+        print(f"DEBUG: Berhasil mengambil {len(reminders)} pengingat dari database.")
         
-        # Mengembalikan respons sederhana untuk menguji koneksi dan query dasar
-        return jsonify({"message": "Koneksi database dan query dasar berhasil", "reminder_count": count}), 200
+        reminders_data = []
+        for i, r in enumerate(reminders):
+            print(f"DEBUG: Memproses pengingat ke-{i}: ID={r.id}, Text='{r.text}', Time={r.reminder_time}")
+            try:
+                r_dict = r.to_dict() # Memanggil to_dict() pada objek ORM `r`
+                print(f"DEBUG: Pengingat ke-{i} berhasil diubah ke dict: {r_dict}")
+
+                # Pastikan r_dict['reminder_time'] ada sebelum mencoba memformat display string
+                if r_dict['reminder_time']: 
+                    # Konversi string ISO kembali ke datetime object sementara untuk format display string
+                    dt_obj_from_iso = datetime.fromisoformat(r_dict['reminder_time']) 
+                    tz_display = format_timezone_display(dt_obj_from_iso)
+                    if tz_display:
+                        r_dict['reminder_time_display'] = dt_obj_from_iso.strftime(f'%d %B %Y %H:%M {tz_display}')
+                    else:
+                        r_dict['reminder_time_display'] = dt_obj_from_iso.strftime('%d %B %Y %H:%M')
+                else:
+                    r_dict['reminder_time_display'] = "Waktu tidak tersedia" 
+                
+                reminders_data.append(r_dict)
+                print(f"DEBUG: Pengingat ke-{i} berhasil ditambahkan ke daftar akhir.")
+            except Exception as inner_e:
+                print(f"FATAL ERROR: Gagal memproses atau menserialisasi pengingat ID {str(r.id) if r.id else 'UNKNOWN'}: {inner_e}")
+                # Mengembalikan error 500 jika satu pengingat saja sudah fatal
+                return jsonify({"error": f"Gagal memproses pengingat {str(r.id) if r.id else 'UNKNOWN ID'}: {str(inner_e)}"}), 500
+
+        print(f"DEBUG: Semua pengingat berhasil diproses. Mengembalikan {len(reminders_data)} pengingat.")
+        return jsonify(reminders_data), 200
     except Exception as e:
         print(f"FATAL ERROR in get_reminders_api (outer try-except): {e}")
         return jsonify({"error": f"Terjadi kesalahan server saat mengambil pengingat: {str(e)}"}), 500
     finally:
         session.close()
-        print("DEBUG: Sesi database ditutup (get_reminders_api sederhana).")
+        print("DEBUG: Sesi database ditutup (get_reminders_api).")
 
 @app.route('/complete_reminder/<string:reminder_id>', methods=['POST'])
 def complete_reminder_api(reminder_id):
