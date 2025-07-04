@@ -9,16 +9,15 @@ from sqlalchemy import Column, String, DateTime, Boolean, Integer
 # --- KONFIGURASI DATABASE ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+print(f"DEBUG (create_db_tables.py): DATABASE_URL yang diterima: '{DATABASE_URL}'") # Debugging
 if not DATABASE_URL:
+    print("ERROR (create_db_tables.py): DATABASE_URL environment variable not set. Cannot create tables.")
     raise ValueError("DATABASE_URL environment variable not set. Cannot create tables.")
 
 engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 
 # --- MODEL DATABASE (SALIN DARI APP.PY) ---
-# Anda harus menyalin definisi model Reminder dari app.py ke sini.
-# Ini penting agar create_all tahu tabel apa yang harus dibuat.
-
 class Reminder(Base):
     __tablename__ = 'reminders'
     id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
@@ -35,10 +34,10 @@ class Reminder(Base):
 
 # --- FUNGSI UTAMA UNTUK MEMBUAT TABEL ---
 if __name__ == '__main__':
-    print("Attempting to create database tables...")
+    print("INFO (create_db_tables.py): Attempting to create database tables...")
     try:
         Base.metadata.create_all(engine)
-        print("Database tables created successfully or already exist.")
+        print("INFO (create_db_tables.py): Database tables created successfully or already exist.")
     except Exception as e:
-        print(f"ERROR: Failed to create database tables: {e}")
-        raise
+        print(f"FATAL ERROR (create_db_tables.py): Failed to create database tables: {e}")
+        raise # Re-raise error agar Railway tahu ada masalah
