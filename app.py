@@ -11,7 +11,6 @@ from sqlalchemy.sql import text as sa_text
 app = Flask(__name__)
 
 # --- KONFIGURASI DATABASE RAILWAY POSTGRESQL INTERNAL ---
-# Railway akan otomatis menyuntikkan DATABASE_URL untuk PostgreSQL internalnya
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # --- DEBUGGING PENTING ---
@@ -23,12 +22,10 @@ if not DATABASE_URL:
 
 try:
     engine = create_engine(DATABASE_URL)
-    # Coba koneksi segera setelah engine dibuat untuk mendeteksi masalah awal
     with engine.connect() as connection:
         print("INFO: Database connection engine created and tested successfully with Railway's PostgreSQL.")
 except Exception as e:
     print(f"FATAL ERROR: Failed to create database engine or connect: {e}")
-    # Jika gagal konek di awal, hentikan aplikasi agar tidak crash terus-menerus
     raise e 
 
 Session = sessionmaker(bind=engine)
@@ -52,7 +49,6 @@ TIMEZONE_MAP = {
 # --- MODEL DATABASE ---
 class Reminder(Base):
     __tablename__ = 'reminders'
-    # 'server_default' memberitahu SQLAlchemy bahwa ID di-generate oleh database PostgreSQL
     id = Column(String, primary_key=True, server_default=sa_text("gen_random_uuid()")) 
     user_id = Column(String) 
     text = Column(String, nullable=False)
@@ -66,10 +62,13 @@ class Reminder(Base):
         return f"<Reminder(id='{self.id}', text='{self.text}', time='{self.reminder_time}')>"
 
     def to_dict(self):
+        # PERBAIKAN DI SINI: Pastikan datetime diformat sebagai ISO string yang valid
+        # dengan atau tanpa tzinfo, untuk kompatibilitas JSON dan JS
         return {
             "id": self.id,
             "user_id": self.user_id,
             "text": self.text,
+            # Gunakan isoformat() dengan string yang jelas
             "reminder_time": self.reminder_time.isoformat() if self.reminder_time else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "is_completed": self.is_completed,
