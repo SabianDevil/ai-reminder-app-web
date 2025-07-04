@@ -62,25 +62,30 @@ class Reminder(Base):
         return f"<Reminder(id='{self.id}', text='{self.text}', time='{self.reminder_time}')>"
 
     def to_dict(self):
-        # PERBAIKAN DI SINI: Pastikan datetime diformat sebagai ISO string yang valid
-        # dengan atau tanpa tzinfo, untuk kompatibilitas JSON dan JS.
-        # Jika ada masalah, pastikan untuk menanganinya.
         reminder_time_iso = None
         if self.reminder_time:
             try:
-                # Periksa apakah objek aware, lalu gunakan isoformat()
-                reminder_time_iso = self.reminder_time.isoformat()
+                # Pastikan objek datetime memiliki tzinfo sebelum memanggil isoformat()
+                # Jika tidak, tambahkan tzinfo default (misalnya UTC)
+                if self.reminder_time.tzinfo is None:
+                    # Asumsikan UTC jika tidak ada tzinfo, atau gunakan LOCAL_TIMEZONE
+                    reminder_time_iso = pytz.utc.localize(self.reminder_time).isoformat()
+                else:
+                    reminder_time_iso = self.reminder_time.isoformat()
             except Exception as dt_e:
+                print(f"ERROR in to_dict (reminder_time): Failed to isoformat {self.reminder_time}: {dt_e}")
                 # Fallback ke string yang lebih sederhana jika isoformat gagal
-                print(f"ERROR: Failed to isoformat reminder_time {self.reminder_time}: {dt_e}")
                 reminder_time_iso = self.reminder_time.strftime('%Y-%m-%dT%H:%M:%S')
 
         created_at_iso = None
         if self.created_at:
             try:
-                created_at_iso = self.created_at.isoformat()
+                if self.created_at.tzinfo is None:
+                    created_at_iso = pytz.utc.localize(self.created_at).isoformat()
+                else:
+                    created_at_iso = self.created_at.isoformat()
             except Exception as dt_e:
-                print(f"ERROR: Failed to isoformat created_at {self.created_at}: {dt_e}")
+                print(f"ERROR in to_dict (created_at): Failed to isoformat {self.created_at}: {dt_e}")
                 created_at_iso = self.created_at.strftime('%Y-%m-%dT%H:%M:%S')
 
         return {
@@ -336,6 +341,8 @@ def extract_schedule(text):
 
 def format_timezone_display(dt_object):
     """Membantu memformat tampilan zona waktu agar lebih ringkas."""
+    if dt_object is None:
+        return ""
     tz_name_full = dt_object.tzname()
     if tz_name_full:
         if "Western Indonesia Standard Time" in tz_name_full:
@@ -344,7 +351,8 @@ def format_timezone_display(dt_object):
             return "WITA"
         elif "Eastern Indonesia Standard Time" in tz_name_full:
             return "WIT"
-        return "" 
+        # Untuk timezone lain, bisa disesuaikan atau dikembalikan nama lengkapnya
+        return tz_name_full
     return "" 
 
 # --- Route (Endpoint) untuk Aplikasi Web Anda ---
@@ -381,6 +389,7 @@ def add_reminder_api():
         return jsonify({"message": "Pengingat berhasil ditambahkan", "reminder": new_reminder.to_dict()}), 201
     except Exception as e:
         session.rollback()
+        print(f"ERROR in add_reminder_api: {e}") # Tambahkan logging untuk error ini
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
@@ -389,27 +398,44 @@ def add_reminder_api():
 def get_reminders_api():
     session = Session()
     try:
+        print("DEBUG: Memulai get_reminders_api.")
         reminders = session.query(Reminder).order_by(Reminder.reminder_time.asc()).all()
+        print(f"DEBUG: Berhasil mengambil {len(reminders)} pengingat dari database.")
         
         reminders_data = []
-        for r in reminders:
-            r_dict = r.to_dict()
-            if r.reminder_time:
-                # PERBAIKAN SYNTAXERROR DI SINI
-                # String format harus dikurung sepenuhnya, tidak terputus
-                tz_display = format_timezone_display(r.reminder_time)
-                if tz_display:
-                    r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %B %Y %H:%M {tz_display}')
-                else:
-                    r_dict['reminder_time_display'] = r.reminder_time.strftime('%d %B %Y %H:%M')
-            reminders_data.append(r_dict)
+        for i, r in enumerate(reminders):
+            print(f"DEBUG: Memproses pengingat ke-{i}: ID={r.id}, Text='{r.text}', Time={r.reminder_time}")
+            try:
+                r_dict = r.to_dict()
+                print(f"DEBUG: Pengingat ke-{i} berhasil diubah ke dict: {r_dict}")
 
+                # Pastikan reminder_time ada sebelum mencoba memformat
+                if r.reminder_time:
+                    tz_display = format_timezone_display(r.reminder_time)
+                    if tz_display:
+                        r_dict['reminder_time_display'] = r.reminder_time.strftime(f'%d %B %Y %H:%M {tz_display}')
+                    else:
+                        r_dict['reminder_time_display'] = r.reminder_time.strftime('%d %B %Y %H:%M')
+                else:
+                    r_dict['reminder_time_display'] = "Waktu tidak tersedia" # Fallback jika reminder_time None
+                
+                reminders_data.append(r_dict)
+                print(f"DEBUG: Pengingat ke-{i} berhasil ditambahkan ke daftar.")
+            except Exception as inner_e:
+                print(f"FATAL ERROR: Gagal memproses atau menserialisasi pengingat ID {r.id}: {inner_e}")
+                # Jika ada satu pengingat yang rusak, kita tetap mencoba memproses yang lain
+                # Atau bisa juga memutuskan untuk return error di sini jika satu saja sudah fatal
+                return jsonify({"error": f"Gagal memproses pengingat {r.id}: {str(inner_e)}"}), 500
+
+        print(f"DEBUG: Semua pengingat berhasil diproses. Mengembalikan {len(reminders_data)} pengingat.")
         return jsonify(reminders_data), 200
     except Exception as e:
-        print(f"ERROR in get_reminders_api: {e}") # Tambahkan logging untuk error ini
-        return jsonify({"error": str(e)}), 500
+        # Ini akan menangkap error dari query database atau error lain yang lebih tinggi
+        print(f"FATAL ERROR in get_reminders_api (outer try-except): {e}")
+        return jsonify({"error": f"Terjadi kesalahan server saat mengambil pengingat: {str(e)}"}), 500
     finally:
         session.close()
+        print("DEBUG: Sesi database ditutup.")
 
 @app.route('/complete_reminder/<string:reminder_id>', methods=['POST'])
 def complete_reminder_api(reminder_id):
@@ -424,6 +450,7 @@ def complete_reminder_api(reminder_id):
         return jsonify({"message": "Pengingat ditandai selesai", "reminder": reminder.to_dict()}), 200
     except Exception as e:
         session.rollback()
+        print(f"ERROR in complete_reminder_api: {e}") # Tambahkan logging untuk error ini
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
