@@ -16,8 +16,8 @@ DATABASE_URL_FROM_ENV = os.getenv("DATABASE_URL")
 # --- DEBUGGING PENTING ---
 print(f"DEBUG: DATABASE_URL yang diterima: '{DATABASE_URL_FROM_ENV}'") 
 if not DATABASE_URL_FROM_ENV:
-    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly.")
-    raise ValueError("DATABASE_URL environment variable not set. Please set it in Railway variables.")
+    print("ERROR: DATABASE_URL is None or empty. Please ensure it is set correctly in Dockerfile ENV.")
+    raise ValueError("DATABASE_URL environment variable not set. Please set it in Dockerfile ENV.")
 # --- AKHIR DEBUGGING ---
 
 try:
@@ -335,19 +335,19 @@ def index():
 
 @app.route('/add_reminder', methods=['POST'])
 def add_reminder_api():
-    data = request.json
-    text_input = data.get('text')
-
-    if not text_input:
-        return jsonify({"error": "Teks pengingat tidak boleh kosong"}), 400
-
-    extracted_info = extract_schedule(text_input)
-
-    if not extracted_info:
-        return jsonify({"error": "Tidak dapat mengurai pengingat dari teks. Format tidak dikenal."}), 400
-
-    session = Session()
+    session = Session() # Session dibuat di awal
     try:
+        data = request.json
+        text_input = data.get('text')
+
+        if not text_input:
+            return jsonify({"error": "Teks pengingat tidak boleh kosong"}), 400
+
+        extracted_info = extract_schedule(text_input)
+
+        if not extracted_info:
+            return jsonify({"error": "Tidak dapat mengurai pengingat dari teks. Format tidak dikenal."}), 400
+
         print("DEBUG: Memulai add_reminder_api.")
         new_reminder = Reminder(
             user_id="anonymous", 
@@ -375,7 +375,7 @@ def add_reminder_api():
 
 @app.route('/get_reminders', methods=['GET'])
 def get_reminders_api():
-    session = Session()
+    session = Session() # Session dibuat di awal
     try:
         print("DEBUG: Memulai get_reminders_api (versi sederhana).")
         # Hanya mencoba menghitung jumlah pengingat
@@ -393,7 +393,7 @@ def get_reminders_api():
 
 @app.route('/complete_reminder/<string:reminder_id>', methods=['POST'])
 def complete_reminder_api(reminder_id):
-    session = Session()
+    session = Session() # Session dibuat di awal
     try:
         reminder = session.query(Reminder).filter_by(id=reminder_id).first()
         if not reminder:
